@@ -42,18 +42,6 @@ const simulateFlightBtn = document.getElementById("simulateFlight");
 const resetDroneBtn = document.getElementById("resetDrone");
 
 // Deployment Resilience Elements
-const addDroneBtn = document.getElementById("addDroneBtn");
-const settingsBtn = document.getElementById("settingsBtn");
-const settingsPanel = document.getElementById("settingsPanel");
-const apiKeyInput = document.getElementById("apiKeyInput");
-const saveSettingsBtn = document.getElementById("saveSettingsBtn");
-const registrationModal = document.getElementById("registrationModal");
-const newDroneIdInput = document.getElementById("newDroneId");
-const confirmRegistrationBtn = document.getElementById(
-  "confirmRegistrationBtn"
-);
-const cancelRegistrationBtn = document.getElementById("cancelRegistrationBtn");
-
 let simulationInterval = null;
 
 function getApiKey() {
@@ -518,42 +506,6 @@ async function resetDrone() {
     updateStatus("error", "Reset mislukt");
   }
 }
-
-// Event Listeners for Deployment Resilience
-settingsBtn.addEventListener("click", () => {
-  settingsPanel.style.display =
-    settingsPanel.style.display === "none" ? "block" : "none";
-  apiKeyInput.value = localStorage.getItem("drone_api_key") || "";
-});
-
-saveSettingsBtn.addEventListener("click", () => {
-  localStorage.setItem("drone_api_key", apiKeyInput.value);
-  settingsPanel.style.display = "none";
-  loadTrackers();
-});
-
-addDroneBtn.addEventListener("click", () => {
-  registrationModal.style.display = "flex";
-  newDroneIdInput.focus();
-});
-
-cancelRegistrationBtn.addEventListener("click", () => {
-  registrationModal.style.display = "none";
-});
-
-confirmRegistrationBtn.addEventListener("click", async () => {
-  const newId = newDroneIdInput.value.trim();
-  if (!newId) return;
-
-  currentTrackerId = newId;
-  // Post an initial location to register it
-  const [lat, lng] = [53.2284, 6.5416]; // Start location
-  await postLocation(lat, lng, 0, 0, "moving");
-
-  registrationModal.style.display = "none";
-  newDroneIdInput.value = "";
-  loadTrackers();
-});
 
 // Init
 document.addEventListener("DOMContentLoaded", () => {
