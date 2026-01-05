@@ -1,5 +1,8 @@
 // Configuration
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL =
+  window.location.hostname === "localhost"
+    ? "http://localhost:3000/api"
+    : "/api";
 const UPDATE_INTERVAL = 3000;
 const DEFAULT_ZOOM = 16;
 const DESTINATION = [53.2407722, 6.5357325]; // Hanze Hogeschool Groningen

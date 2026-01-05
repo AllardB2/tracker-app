@@ -5,7 +5,9 @@
     "install:all": "npm install && cd backend && npm install",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && node server.js",
-    "start": "npm run dev:backend & npm run dev:frontend"
+    "start": "npm run dev:backend & npm run dev:frontend",
+    "build": "cd backend && npx prisma generate",
+    "prod:start": "cd backend && NODE_ENV=production node src/index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
