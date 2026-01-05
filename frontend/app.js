@@ -38,10 +38,10 @@ const deliveryOverlay = document.getElementById("deliveryOverlay");
 const deliveredTime = document.getElementById("deliveredTime");
 const deliveredDrone = document.getElementById("deliveredDrone");
 const closeOverlayBtn = document.getElementById("closeOverlay");
-const simulateFlightBtn = document.getElementById("simulateFlight");
 
 // Deployment Resilience Elements
 let simulationInterval = null;
+let takeoffTimer = null;
 
 function getApiKey() {
   return localStorage.getItem("drone_api_key") || "dev-secret-key-12345";
@@ -337,13 +337,13 @@ async function loadTrackers() {
     if (hash && data.trackers.includes(hash)) {
       trackerSelect.value = hash;
       currentTrackerId = hash;
-      startAutoUpdate();
+      prepareTakeoff();
     } else if (currentVal) {
       trackerSelect.value = currentVal;
     } else if (data.trackers.length > 0) {
       trackerSelect.value = data.trackers[0];
       currentTrackerId = data.trackers[0];
-      startAutoUpdate();
+      prepareTakeoff();
     } else {
       updateStatus("", "Geen drones gevonden");
     }
@@ -372,26 +372,36 @@ function handleHashChange() {
     if ([...trackerSelect.options].some((opt) => opt.value === hash)) {
       trackerSelect.value = hash;
       currentTrackerId = hash;
-      clearPath();
-      currentObstacle = null;
-      obstacleStepsRemaining = 0;
-      fetchLatestLocation();
-      startAutoUpdate();
+      prepareTakeoff();
     }
   }
 }
 
-trackerSelect.addEventListener("change", (e) => {
-  currentTrackerId = e.target.value;
+function prepareTakeoff() {
+  if (takeoffTimer) clearTimeout(takeoffTimer);
+  if (simulationInterval) clearInterval(simulationInterval);
+  simulationInterval = null;
+
   clearPath();
   currentObstacle = null;
   obstacleStepsRemaining = 0;
 
+  updateStatus("active", "🚀 Opstijgen...");
+  startAutoUpdate();
+
+  takeoffTimer = setTimeout(() => {
+    startSimulation();
+  }, 10000);
+}
+
+trackerSelect.addEventListener("change", (e) => {
+  currentTrackerId = e.target.value;
   if (currentTrackerId) {
     window.location.hash = currentTrackerId;
-    startAutoUpdate();
+    prepareTakeoff();
   } else {
     window.location.hash = "";
+    if (takeoffTimer) clearTimeout(takeoffTimer);
     stopAutoUpdate();
     updateStatus("", "Ready");
   }
@@ -410,14 +420,11 @@ closeOverlayBtn.addEventListener("click", () => {
 
 async function startSimulation() {
   if (!currentTrackerId) return;
-  if (simulationInterval) {
-    clearInterval(simulationInterval);
-    simulationInterval = null;
-    simulateFlightBtn.textContent = "🚀 Start Autonome Vlucht";
-    return;
-  }
 
-  simulateFlightBtn.textContent = "⏹ Stop Simulatie";
+  if (simulationInterval) clearInterval(simulationInterval);
+  if (takeoffTimer) clearTimeout(takeoffTimer);
+
+  updateStatus("active", "Uitzending...");
   clearPath();
   currentObstacle = null;
   obstacleStepsRemaining = 0;
@@ -445,7 +452,6 @@ async function startSimulation() {
       // Destination reached
       clearInterval(simulationInterval);
       simulationInterval = null;
-      simulateFlightBtn.textContent = "🚀 Start Autonome Vlucht";
 
       // Send final location with status 'delivered'
       await postLocation(destLat, destLng, 0, 0, "delivered");
@@ -532,5 +538,3 @@ document.addEventListener("DOMContentLoaded", () => {
   requestUserLocation();
   loadTrackers();
 });
-
-simulateFlightBtn.addEventListener("click", startSimulation);
