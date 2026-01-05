@@ -47,6 +47,15 @@ function getApiKey() {
   return localStorage.getItem("drone_api_key") || "dev-secret-key-12345";
 }
 
+function getSessionId() {
+  let sid = sessionStorage.getItem("drone_session_id");
+  if (!sid) {
+    sid = "sess-" + Math.random().toString(36).substring(2, 10);
+    sessionStorage.setItem("drone_session_id", sid);
+  }
+  return sid;
+}
+
 // Initialize map
 function initMap() {
   map = L.map("map", {
@@ -284,7 +293,12 @@ async function fetchLatestLocation() {
     updateStatus("active", "Syncing...");
     const response = await fetch(
       `${API_BASE_URL}/location/latest?trackerId=${currentTrackerId}`,
-      { headers: { "x-api-key": getApiKey() } }
+      {
+        headers: {
+          "x-api-key": getApiKey(),
+          "x-session-id": getSessionId(),
+        },
+      }
     );
 
     if (response.status === 401) {
@@ -314,7 +328,10 @@ async function fetchLatestLocation() {
 async function loadTrackers() {
   try {
     const response = await fetch(`${API_BASE_URL}/trackers`, {
-      headers: { "x-api-key": getApiKey() },
+      headers: {
+        "x-api-key": getApiKey(),
+        "x-session-id": getSessionId(),
+      },
     });
 
     if (response.status === 401) {
@@ -433,6 +450,7 @@ async function startSimulation() {
       headers: {
         "Content-Type": "application/json",
         "x-api-key": getApiKey(),
+        "x-session-id": getSessionId(),
       },
       body: JSON.stringify({
         trackerId: currentTrackerId,
@@ -456,6 +474,7 @@ async function resetDroneHistory(trackerId) {
       method: "DELETE",
       headers: {
         "x-api-key": getApiKey(),
+        "x-session-id": getSessionId(),
       },
     });
 
@@ -489,6 +508,7 @@ async function postLocation(
       headers: {
         "Content-Type": "application/json",
         "x-api-key": getApiKey(),
+        "x-session-id": getSessionId(),
       },
       body: JSON.stringify({
         trackerId: currentTrackerId,

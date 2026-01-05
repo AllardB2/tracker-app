@@ -53,6 +53,7 @@ export const locationController = {
         status,
         obstacleType,
       } = postLocationSchema.parse(req.body);
+      const sessionId = req.headers["x-session-id"] || "global";
 
       const location = await locationService.storeLocation(
         trackerId,
@@ -61,7 +62,8 @@ export const locationController = {
         altitude,
         heading,
         status,
-        obstacleType
+        obstacleType,
+        sessionId
       );
 
       res.status(200).json({
@@ -80,8 +82,12 @@ export const locationController = {
   async getLatestLocation(req, res, next) {
     try {
       const { trackerId } = getLatestSchema.parse(req.query);
+      const sessionId = req.headers["x-session-id"] || "global";
 
-      const location = await locationService.getLatestLocation(trackerId);
+      const location = await locationService.getLatestLocation(
+        trackerId,
+        sessionId
+      );
 
       if (!location) {
         return res.status(404).json({
@@ -111,9 +117,11 @@ export const locationController = {
   async getLocationHistory(req, res, next) {
     try {
       const { trackerId, limit } = getHistorySchema.parse(req.query);
+      const sessionId = req.headers["x-session-id"] || "global";
 
       const locations = await locationService.getLocationHistory(
         trackerId,
+        sessionId,
         limit
       );
 
@@ -140,7 +148,8 @@ export const locationController = {
    */
   async getAllTrackers(req, res, next) {
     try {
-      const trackerIds = await locationService.getAllTrackerIds();
+      const sessionId = req.headers["x-session-id"] || "global";
+      const trackerIds = await locationService.getAllTrackerIds(sessionId);
 
       res.status(200).json({
         trackers: trackerIds,
@@ -155,11 +164,12 @@ export const locationController = {
   async deleteHistory(req, res, next) {
     try {
       const { trackerId } = deleteHistorySchema.parse(req.params);
+      const sessionId = req.headers["x-session-id"] || "global";
 
-      await locationService.clearHistory(trackerId);
+      await locationService.clearHistory(trackerId, sessionId);
 
       // Also stop any active simulation
-      simulationService.stopSimulation(trackerId);
+      simulationService.stopSimulation(trackerId, sessionId);
 
       res.status(200).json({
         status: "ok",
@@ -176,7 +186,12 @@ export const locationController = {
   async startSimulation(req, res, next) {
     try {
       const { trackerId, destination } = startSimulationSchema.parse(req.body);
-      await simulationService.startSimulation(trackerId, destination);
+      const sessionId = req.headers["x-session-id"] || "global";
+      await simulationService.startSimulation(
+        trackerId,
+        destination,
+        sessionId
+      );
       res.status(200).json({ status: "ok", message: "Simulation started" });
     } catch (error) {
       next(error);
@@ -189,7 +204,8 @@ export const locationController = {
   async stopSimulation(req, res, next) {
     try {
       const { trackerId } = stopSimulationSchema.parse(req.body);
-      simulationService.stopSimulation(trackerId);
+      const sessionId = req.headers["x-session-id"] || "global";
+      simulationService.stopSimulation(trackerId, sessionId);
       res.status(200).json({ status: "ok", message: "Simulation stopped" });
     } catch (error) {
       next(error);

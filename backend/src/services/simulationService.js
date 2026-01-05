@@ -5,19 +5,26 @@ class SimulationService {
     this.activeSimulations = new Map();
   }
 
-  async startSimulation(trackerId, destination) {
-    if (this.activeSimulations.has(trackerId)) {
-      console.log(`📡 Taking over existing simulation for ${trackerId}`);
-      this.stopSimulation(trackerId);
+  async startSimulation(trackerId, destination, sessionId = "global") {
+    const simKey = `${sessionId}:${trackerId}`;
+
+    if (this.activeSimulations.has(simKey)) {
+      console.log(
+        `📡 Resetting existing simulation for ${trackerId} (Session: ${sessionId})`
+      );
+      this.stopSimulation(trackerId, sessionId);
     }
 
     console.log(
-      `🚀 Starting server-side simulation for ${trackerId} to`,
+      `🚀 Starting server-side simulation for ${trackerId} (Session: ${sessionId}) to`,
       destination
     );
 
     // Initial state
-    let lastLocation = await locationService.getLatestLocation(trackerId);
+    let lastLocation = await locationService.getLatestLocation(
+      trackerId,
+      sessionId
+    );
     if (!lastLocation) {
       lastLocation = {
         latitude: 53.2284,
@@ -33,7 +40,10 @@ class SimulationService {
 
     const intervalId = setInterval(async () => {
       try {
-        const latestInfo = await locationService.getLatestLocation(trackerId);
+        const latestInfo = await locationService.getLatestLocation(
+          trackerId,
+          sessionId
+        );
         const [destLat, destLng] = destination;
 
         const currentLat = latestInfo
@@ -48,15 +58,19 @@ class SimulationService {
         const distance = Math.sqrt(distLat * distLat + distLng * distLng);
 
         if (distance < 0.0005) {
-          console.log(`🏁 Destination reached for ${trackerId}`);
-          this.stopSimulation(trackerId);
+          console.log(
+            `🏁 Destination reached for ${trackerId} (Session: ${sessionId})`
+          );
+          this.stopSimulation(trackerId, sessionId);
           await locationService.storeLocation(
             trackerId,
             destLat,
             destLng,
             0,
             0,
-            "delivered"
+            "delivered",
+            null,
+            sessionId
           );
           return;
         }
@@ -92,22 +106,29 @@ class SimulationService {
           30 + Math.random() * 5,
           heading,
           "moving",
-          obstacleType
+          obstacleType,
+          sessionId
         );
       } catch (err) {
-        console.error(`❌ Simulation loop error for ${trackerId}:`, err);
-        this.stopSimulation(trackerId);
+        console.error(
+          `❌ Simulation loop error for ${trackerId} (Session: ${sessionId}):`,
+          err
+        );
+        this.stopSimulation(trackerId, sessionId);
       }
     }, 2000);
 
-    this.activeSimulations.set(trackerId, intervalId);
+    this.activeSimulations.set(simKey, intervalId);
   }
 
-  stopSimulation(trackerId) {
-    if (this.activeSimulations.has(trackerId)) {
-      clearInterval(this.activeSimulations.get(trackerId));
-      this.activeSimulations.delete(trackerId);
-      console.log(`⏹ Stopped simulation for ${trackerId}`);
+  stopSimulation(trackerId, sessionId = "global") {
+    const simKey = `${sessionId}:${trackerId}`;
+    if (this.activeSimulations.has(simKey)) {
+      clearInterval(this.activeSimulations.get(simKey));
+      this.activeSimulations.delete(simKey);
+      console.log(
+        `⏹ Stopped simulation for ${trackerId} (Session: ${sessionId})`
+      );
     }
   }
 }

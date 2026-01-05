@@ -11,11 +11,13 @@ export const locationService = {
     altitude = 0,
     heading = 0,
     status = "moving",
-    obstacleType = null
+    obstacleType = null,
+    sessionId = "global"
   ) {
     const location = await prisma.location.create({
       data: {
         trackerId,
+        sessionId,
         latitude,
         longitude,
         altitude,
@@ -31,9 +33,9 @@ export const locationService = {
   /**
    * Get the latest location for a specific tracker
    */
-  async getLatestLocation(trackerId) {
+  async getLatestLocation(trackerId, sessionId = "global") {
     const location = await prisma.location.findFirst({
-      where: { trackerId },
+      where: { trackerId, sessionId },
       orderBy: { createdAt: "desc" },
     });
 
@@ -43,9 +45,9 @@ export const locationService = {
   /**
    * Get location history for a tracker
    */
-  async getLocationHistory(trackerId, limit = 100) {
+  async getLocationHistory(trackerId, sessionId = "global", limit = 100) {
     const locations = await prisma.location.findMany({
-      where: { trackerId },
+      where: { trackerId, sessionId },
       orderBy: { createdAt: "desc" },
       take: limit,
     });
@@ -56,8 +58,11 @@ export const locationService = {
   /**
    * Get all unique tracker IDs
    */
-  async getAllTrackerIds() {
+  async getAllTrackerIds(sessionId = "global") {
     const trackers = await prisma.location.findMany({
+      where: {
+        OR: [{ sessionId: sessionId }, { sessionId: "global" }],
+      },
       select: { trackerId: true },
       distinct: ["trackerId"],
     });
@@ -67,9 +72,9 @@ export const locationService = {
   /**
    * Delete all locations for a tracker
    */
-  async clearHistory(trackerId) {
+  async clearHistory(trackerId, sessionId = "global") {
     return await prisma.location.deleteMany({
-      where: { trackerId },
+      where: { trackerId, sessionId },
     });
   },
 };
