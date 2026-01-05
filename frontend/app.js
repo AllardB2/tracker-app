@@ -379,9 +379,7 @@ function handleHashChange() {
 
 function prepareTakeoff() {
   if (takeoffTimer) clearTimeout(takeoffTimer);
-  if (simulationInterval) clearInterval(simulationInterval);
-  simulationInterval = null;
-
+  // Clear map locally, simulation is on server
   clearPath();
   currentObstacle = null;
   obstacleStepsRemaining = 0;
@@ -426,78 +424,28 @@ closeOverlayBtn.addEventListener("click", async () => {
 async function startSimulation() {
   if (!currentTrackerId) return;
 
-  if (simulationInterval) clearInterval(simulationInterval);
   if (takeoffTimer) clearTimeout(takeoffTimer);
-
   updateStatus("active", "Uitzending...");
-  clearPath();
-  currentObstacle = null;
-  obstacleStepsRemaining = 0;
 
-  simulationInterval = setInterval(async () => {
-    if (!lastLocation) {
-      // Start near Groningen
-      lastLocation = {
-        latitude: 53.2284,
-        longitude: 6.5416,
-        altitude: 0,
-        heading: 0,
-      };
-    }
+  try {
+    const response = await fetch(`${API_BASE_URL}/simulation/start`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": getApiKey(),
+      },
+      body: JSON.stringify({
+        trackerId: currentTrackerId,
+        destination: DESTINATION,
+      }),
+    });
 
-    const { latitude, longitude } = lastLocation;
-    const [destLat, destLng] = DESTINATION;
-
-    // Calculate distance and step
-    const distLat = destLat - latitude;
-    const distLng = destLng - longitude;
-    const distance = Math.sqrt(distLat * distLat + distLng * distLng);
-
-    if (distance < 0.0005) {
-      // Destination reached
-      clearInterval(simulationInterval);
-      simulationInterval = null;
-
-      // Send final location with status 'delivered'
-      await postLocation(destLat, destLng, 0, 0, "delivered");
-      return;
-    }
-
-    // Move towards destination (slower if wind)
-    const moveSpeed = currentObstacle === "wind" ? 0.05 : 0.1;
-    let stepLat = latitude + distLat * moveSpeed;
-    let stepLng = longitude + distLng * moveSpeed;
-    const heading = (Math.atan2(distLng, distLat) * 180) / Math.PI;
-
-    // Handle persistent obstacles
-    let obstacleType = null;
-    if (obstacleStepsRemaining > 0) {
-      obstacleType = currentObstacle;
-      obstacleStepsRemaining--;
-
-      if (obstacleType === "fire") {
-        stepLat += 0.0004; // Detour
-        stepLng += 0.0004;
-      }
-    } else {
-      currentObstacle = null;
-      // Chance to start new obstacle (less frequent, but lasts longer)
-      if (distance > 0.003 && Math.random() > 0.95) {
-        currentObstacle = Math.random() > 0.7 ? "fire" : "wind";
-        obstacleStepsRemaining = currentObstacle === "wind" ? 5 : 3; // Wind lasts longer (5 steps = 10s)
-        obstacleType = currentObstacle;
-      }
-    }
-
-    await postLocation(
-      stepLat,
-      stepLng,
-      30 + Math.random() * 5,
-      heading,
-      "moving",
-      obstacleType
-    );
-  }, 2000);
+    if (!response.ok) throw new Error("Could not start server-side simulation");
+    console.log("🛰 Server-side simulation started");
+  } catch (err) {
+    console.error("❌ Simulation start failed:", err);
+    updateStatus("error", "Simulatie fout");
+  }
 }
 
 async function resetDroneHistory(trackerId) {

@@ -23,4 +23,12 @@ router.delete(
   locationController.deleteHistory
 );
 
+// Simulation routes - requires API key
+router.post(
+  "/simulation/start",
+  apiKeyAuth,
+  locationController.startSimulation
+);
+router.post("/simulation/stop", apiKeyAuth, locationController.stopSimulation);
+
 export default router;

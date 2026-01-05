@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { locationService } from "../services/locationService.js";
+import { simulationService } from "../services/simulationService.js";
 
 // Validation schemas
 const postLocationSchema = z.object({
@@ -25,6 +26,15 @@ const getHistorySchema = z.object({
 });
 
 const deleteHistorySchema = z.object({
+  trackerId: z.string().min(1, "trackerId is required"),
+});
+
+const startSimulationSchema = z.object({
+  trackerId: z.string().min(1, "trackerId is required"),
+  destination: z.array(z.number()).length(2),
+});
+
+const stopSimulationSchema = z.object({
   trackerId: z.string().min(1, "trackerId is required"),
 });
 
@@ -148,10 +158,39 @@ export const locationController = {
 
       await locationService.clearHistory(trackerId);
 
+      // Also stop any active simulation
+      simulationService.stopSimulation(trackerId);
+
       res.status(200).json({
         status: "ok",
         message: `History cleared for tracker: ${trackerId}`,
       });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * POST /simulation/start - Start server-side simulation
+   */
+  async startSimulation(req, res, next) {
+    try {
+      const { trackerId, destination } = startSimulationSchema.parse(req.body);
+      await simulationService.startSimulation(trackerId, destination);
+      res.status(200).json({ status: "ok", message: "Simulation started" });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * POST /simulation/stop - Stop server-side simulation
+   */
+  async stopSimulation(req, res, next) {
+    try {
+      const { trackerId } = stopSimulationSchema.parse(req.body);
+      simulationService.stopSimulation(trackerId);
+      res.status(200).json({ status: "ok", message: "Simulation stopped" });
     } catch (error) {
       next(error);
     }
