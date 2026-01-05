@@ -39,7 +39,6 @@ const deliveredTime = document.getElementById("deliveredTime");
 const deliveredDrone = document.getElementById("deliveredDrone");
 const closeOverlayBtn = document.getElementById("closeOverlay");
 const simulateFlightBtn = document.getElementById("simulateFlight");
-const resetDroneBtn = document.getElementById("resetDrone");
 
 // Deployment Resilience Elements
 let simulationInterval = null;
@@ -326,6 +325,7 @@ async function loadTrackers() {
     const data = await response.json();
 
     const currentVal = trackerSelect.value;
+    const hash = window.location.hash.substring(1);
     trackerSelect.innerHTML = '<option value="">Selecteer drone...</option>';
 
     data.trackers.forEach((id) => {
@@ -334,8 +334,13 @@ async function loadTrackers() {
       trackerSelect.appendChild(opt);
     });
 
-    if (currentVal) trackerSelect.value = currentVal;
-    else if (data.trackers.length > 0) {
+    if (hash && data.trackers.includes(hash)) {
+      trackerSelect.value = hash;
+      currentTrackerId = hash;
+      startAutoUpdate();
+    } else if (currentVal) {
+      trackerSelect.value = currentVal;
+    } else if (data.trackers.length > 0) {
       trackerSelect.value = data.trackers[0];
       currentTrackerId = data.trackers[0];
       startAutoUpdate();
@@ -360,14 +365,39 @@ function clearPath() {
 }
 
 // Event Listeners
+function handleHashChange() {
+  const hash = window.location.hash.substring(1);
+  if (hash && hash !== currentTrackerId) {
+    // Check if the hash is a valid drone in the dropdown
+    if ([...trackerSelect.options].some((opt) => opt.value === hash)) {
+      trackerSelect.value = hash;
+      currentTrackerId = hash;
+      clearPath();
+      currentObstacle = null;
+      obstacleStepsRemaining = 0;
+      fetchLatestLocation();
+      startAutoUpdate();
+    }
+  }
+}
+
 trackerSelect.addEventListener("change", (e) => {
   currentTrackerId = e.target.value;
   clearPath();
   currentObstacle = null;
   obstacleStepsRemaining = 0;
-  if (currentTrackerId) startAutoUpdate();
-  else updateStatus("", "Ready");
+
+  if (currentTrackerId) {
+    window.location.hash = currentTrackerId;
+    startAutoUpdate();
+  } else {
+    window.location.hash = "";
+    stopAutoUpdate();
+    updateStatus("", "Ready");
+  }
 });
+
+window.addEventListener("hashchange", handleHashChange);
 
 vpnToggle.addEventListener("change", (e) => {
   vpnMode = e.target.checked;
@@ -496,46 +526,6 @@ async function postLocation(
   }
 }
 
-async function resetDrone() {
-  if (!currentTrackerId) return;
-
-  if (
-    !confirm(
-      `Weet je zeker dat je de geschiedenis van ${currentTrackerId} wilt wissen?`
-    )
-  ) {
-    return;
-  }
-
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/location/${currentTrackerId}`,
-      {
-        method: "DELETE",
-        headers: {
-          "x-api-key": getApiKey(),
-        },
-      }
-    );
-
-    if (response.ok) {
-      clearPath();
-      lastLocation = null;
-      if (droneMarker) {
-        map.removeLayer(droneMarker);
-        droneMarker = null;
-      }
-      pathSegments = [];
-      allPositions = [];
-      updateStatus("active", "Reset voltooid");
-      setTimeout(() => updateStatus("active", "Ready"), 2000);
-    }
-  } catch (err) {
-    console.error("❌ Reset failed:", err);
-    updateStatus("error", "Reset mislukt");
-  }
-}
-
 // Init
 document.addEventListener("DOMContentLoaded", () => {
   initMap();
@@ -544,4 +534,3 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 simulateFlightBtn.addEventListener("click", startSimulation);
-resetDroneBtn.addEventListener("click", resetDrone);
