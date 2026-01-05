@@ -3,6 +3,7 @@ import cors from "cors";
 import { config } from "./config/env.js";
 import locationRoutes from "./routes/locationRoutes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { locationService } from "./services/locationService.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -41,8 +42,30 @@ app.get("*", (req, res, next) => {
 // Error handling (must be last)
 app.use(errorHandler);
 
+// Seed default drone
+async function seedDefaultDrone() {
+  try {
+    const trackerId = "pakket-ids-lennart";
+    const existing = await locationService.getLatestLocation(trackerId);
+    if (!existing) {
+      console.log(`🌱 Seeding default drone: ${trackerId}`);
+      await locationService.storeLocation(
+        trackerId,
+        53.097314,
+        6.8884769,
+        30,
+        0,
+        "moving"
+      );
+    }
+  } catch (err) {
+    console.error("❌ Seeding failed:", err);
+  }
+}
+
 // Start server
-app.listen(config.port, () => {
+const server = app.listen(config.port, async () => {
+  await seedDefaultDrone();
   console.log(`🚀 GPS Tracker API running on http://localhost:${config.port}`);
   console.log(`📍 Environment: ${config.nodeEnv}`);
   console.log(`🔐 CORS enabled for: ${config.corsOrigin.join(", ")}`);
