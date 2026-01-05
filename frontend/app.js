@@ -414,8 +414,13 @@ vpnToggle.addEventListener("change", (e) => {
   statusText.textContent = vpnMode ? "VPN ON - Click Map" : "Live";
 });
 
-closeOverlayBtn.addEventListener("click", () => {
+closeOverlayBtn.addEventListener("click", async () => {
   deliveryOverlay.style.display = "none";
+  if (currentTrackerId) {
+    await resetDroneHistory(currentTrackerId);
+    // Refresh trackers to ensure UI is in sync
+    loadTrackers();
+  }
 });
 
 async function startSimulation() {
@@ -493,6 +498,33 @@ async function startSimulation() {
       obstacleType
     );
   }, 2000);
+}
+
+async function resetDroneHistory(trackerId) {
+  if (!trackerId) return;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/location/${trackerId}`, {
+      method: "DELETE",
+      headers: {
+        "x-api-key": getApiKey(),
+      },
+    });
+
+    if (response.ok) {
+      console.log(`🧹 History cleared for ${trackerId}`);
+      clearPath();
+      lastLocation = null;
+      if (droneMarker) {
+        map.removeLayer(droneMarker);
+        droneMarker = null;
+      }
+      updateStatus("active", "Reset voltooid");
+      setTimeout(() => updateStatus("active", "Ready"), 2000);
+    }
+  } catch (err) {
+    console.error("❌ Reset failed:", err);
+  }
 }
 
 async function postLocation(
