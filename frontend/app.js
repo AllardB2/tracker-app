@@ -5,7 +5,7 @@ const API_BASE_URL =
     : "/api";
 const UPDATE_INTERVAL = 3000;
 const DEFAULT_ZOOM = 16;
-const DESTINATION = [53.2407722, 6.5357325]; // Hanze Hogeschool Groningen
+let DESTINATION = [53.2407722, 6.5357325]; // Default: Hanze (wordt overschreven door jouw locatie)
 
 // State
 let map = null;
@@ -70,12 +70,41 @@ function initMap() {
 
   destinationMarker = L.marker(DESTINATION, { icon: destIcon })
     .addTo(map)
-    .bindPopup("<strong>Bestemming</strong><br>Hanze Hogeschool Groningen");
+    .bindPopup(
+      "<strong>Jouw Locatie</strong><br>Dit is de bestemming van de drone"
+    );
 
   // Map Click Listener for VPN Mode
   map.on("click", onMapClick);
+}
 
-  console.log("✅ Map initialized with Dark Theme");
+function requestUserLocation() {
+  if (!navigator.geolocation) {
+    console.error("❌ Geolocation is not supported by your browser");
+    return;
+  }
+
+  updateStatus("active", "Locatie opvragen...");
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      DESTINATION = [latitude, longitude];
+
+      if (destinationMarker) {
+        destinationMarker.setLatLng(DESTINATION);
+        map.setView(DESTINATION, 14);
+      }
+
+      console.log("📍 Bestemming ingesteld op jouw locatie:", DESTINATION);
+      updateStatus("active", "Ready");
+    },
+    (error) => {
+      console.error("❌ Geolocation error:", error);
+      updateStatus("error", "Locatie geweigerd");
+      // We behouden de default Hanze locatie als backup
+    }
+  );
 }
 
 async function onMapClick(e) {
@@ -510,6 +539,7 @@ async function resetDrone() {
 // Init
 document.addEventListener("DOMContentLoaded", () => {
   initMap();
+  requestUserLocation();
   loadTrackers();
 });
 
