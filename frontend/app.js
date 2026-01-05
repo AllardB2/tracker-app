@@ -41,7 +41,24 @@ const closeOverlayBtn = document.getElementById("closeOverlay");
 const simulateFlightBtn = document.getElementById("simulateFlight");
 const resetDroneBtn = document.getElementById("resetDrone");
 
+// Deployment Resilience Elements
+const addDroneBtn = document.getElementById("addDroneBtn");
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsPanel = document.getElementById("settingsPanel");
+const apiKeyInput = document.getElementById("apiKeyInput");
+const saveSettingsBtn = document.getElementById("saveSettingsBtn");
+const registrationModal = document.getElementById("registrationModal");
+const newDroneIdInput = document.getElementById("newDroneId");
+const confirmRegistrationBtn = document.getElementById(
+  "confirmRegistrationBtn"
+);
+const cancelRegistrationBtn = document.getElementById("cancelRegistrationBtn");
+
 let simulationInterval = null;
+
+function getApiKey() {
+  return localStorage.getItem("drone_api_key") || "dev-secret-key-12345";
+}
 
 // Initialize map
 function initMap() {
@@ -250,8 +267,15 @@ async function fetchLatestLocation() {
   try {
     updateStatus("active", "Syncing...");
     const response = await fetch(
-      `${API_BASE_URL}/location/latest?trackerId=${currentTrackerId}`
+      `${API_BASE_URL}/location/latest?trackerId=${currentTrackerId}`,
+      { headers: { "x-api-key": getApiKey() } }
     );
+
+    if (response.status === 401) {
+      updateStatus("error", "Invalid API Key");
+      return;
+    }
+
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
@@ -273,7 +297,15 @@ async function fetchLatestLocation() {
 
 async function loadTrackers() {
   try {
-    const response = await fetch(`${API_BASE_URL}/trackers`);
+    const response = await fetch(`${API_BASE_URL}/trackers`, {
+      headers: { "x-api-key": getApiKey() },
+    });
+
+    if (response.status === 401) {
+      updateStatus("error", "🔑 API Key Required");
+      return;
+    }
+
     const data = await response.json();
 
     const currentVal = trackerSelect.value;
@@ -290,6 +322,8 @@ async function loadTrackers() {
       trackerSelect.value = data.trackers[0];
       currentTrackerId = data.trackers[0];
       startAutoUpdate();
+    } else {
+      updateStatus("", "Geen drones gevonden");
     }
   } catch (err) {
     updateStatus("error", "API Error");
@@ -417,11 +451,11 @@ async function postLocation(
   obstacleType = null
 ) {
   try {
-    await fetch(`${API_BASE_URL}/location`, {
+    const response = await fetch(`${API_BASE_URL}/location`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": "dev-secret-key-12345",
+        "x-api-key": getApiKey(),
       },
       body: JSON.stringify({
         trackerId: currentTrackerId,
@@ -433,6 +467,12 @@ async function postLocation(
         obstacleType: obstacleType,
       }),
     });
+
+    if (response.status === 401) {
+      updateStatus("error", "Invalid API Key");
+      return;
+    }
+
     fetchLatestLocation();
   } catch (err) {
     console.error("❌ Post failed:", err);
@@ -456,7 +496,7 @@ async function resetDrone() {
       {
         method: "DELETE",
         headers: {
-          "x-api-key": "dev-secret-key-12345",
+          "x-api-key": getApiKey(),
         },
       }
     );
@@ -478,6 +518,42 @@ async function resetDrone() {
     updateStatus("error", "Reset mislukt");
   }
 }
+
+// Event Listeners for Deployment Resilience
+settingsBtn.addEventListener("click", () => {
+  settingsPanel.style.display =
+    settingsPanel.style.display === "none" ? "block" : "none";
+  apiKeyInput.value = localStorage.getItem("drone_api_key") || "";
+});
+
+saveSettingsBtn.addEventListener("click", () => {
+  localStorage.setItem("drone_api_key", apiKeyInput.value);
+  settingsPanel.style.display = "none";
+  loadTrackers();
+});
+
+addDroneBtn.addEventListener("click", () => {
+  registrationModal.style.display = "flex";
+  newDroneIdInput.focus();
+});
+
+cancelRegistrationBtn.addEventListener("click", () => {
+  registrationModal.style.display = "none";
+});
+
+confirmRegistrationBtn.addEventListener("click", async () => {
+  const newId = newDroneIdInput.value.trim();
+  if (!newId) return;
+
+  currentTrackerId = newId;
+  // Post an initial location to register it
+  const [lat, lng] = [53.2284, 6.5416]; // Start location
+  await postLocation(lat, lng, 0, 0, "moving");
+
+  registrationModal.style.display = "none";
+  newDroneIdInput.value = "";
+  loadTrackers();
+});
 
 // Init
 document.addEventListener("DOMContentLoaded", () => {

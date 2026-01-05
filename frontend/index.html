@@ -68,9 +68,18 @@
         <div class="controls">
           <div class="control-group">
             <label for="trackerSelect">Drone:</label>
-            <select id="trackerSelect">
-              <option value="">Selecteer drone...</option>
-            </select>
+            <div class="select-with-add">
+              <select id="trackerSelect">
+                <option value="">Selecteer drone...</option>
+              </select>
+              <button
+                class="btn-icon"
+                id="addDroneBtn"
+                title="Nieuwe Drone Registreren"
+              >
+                +
+              </button>
+            </div>
           </div>
 
           <div class="control-group simulation-control">
@@ -81,12 +90,48 @@
             <span class="label-text">VPN Mode (Sim)</span>
           </div>
 
+          <button class="btn-icon" id="settingsBtn" title="Instellingen">
+            ⚙️
+          </button>
+
           <div class="status" id="status">
             <span class="status-dot"></span>
             <span class="status-text">Ready</span>
           </div>
         </div>
       </header>
+
+      <!-- Settings Panel (Hidden by default) -->
+      <div class="settings-panel" id="settingsPanel" style="display: none">
+        <h4>Instellingen</h4>
+        <div class="input-group">
+          <label for="apiKeyInput">API Key (Railway):</label>
+          <input
+            type="password"
+            id="apiKeyInput"
+            placeholder="dev-secret-key-..."
+          />
+          <small>Wordt alleen lokaal in je browser bewaard.</small>
+        </div>
+        <button class="btn-primary" id="saveSettingsBtn">Opslaan</button>
+      </div>
+
+      <!-- Registration Modal (Hidden by default) -->
+      <div class="modal-overlay" id="registrationModal" style="display: none">
+        <div class="modal">
+          <h3>Nieuwe Drone Registreren</h3>
+          <p>Voer een unieke naam in voor je drone:</p>
+          <input type="text" id="newDroneId" placeholder="bijv. drone-01" />
+          <div class="modal-actions">
+            <button class="btn-secondary" id="cancelRegistrationBtn">
+              Annuleren
+            </button>
+            <button class="btn-primary" id="confirmRegistrationBtn">
+              Registreren
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- Map Container -->
       <main class="content">
