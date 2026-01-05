@@ -51,8 +51,8 @@ async function seedDefaultDrone() {
       console.log(`🌱 Seeding default drone: ${trackerId}`);
       await locationService.storeLocation(
         trackerId,
-        53.097314,
-        6.8884769,
+        53.0969169,
+        6.8852919,
         30,
         0,
         "moving"

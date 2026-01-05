@@ -27,8 +27,8 @@ class SimulationService {
     );
     if (!lastLocation) {
       lastLocation = {
-        latitude: 53.2284,
-        longitude: 6.5416,
+        latitude: 53.0969169,
+        longitude: 6.8852919,
         altitude: 0,
         heading: 0,
         status: "moving",
