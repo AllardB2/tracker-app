@@ -1,0 +1,25 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Location {
+  id           Int      @id @default(autoincrement())
+  trackerId    String
+  latitude     Float
+  longitude    Float
+  altitude     Float?   @default(0)
+  heading      Float?   @default(0)
+  status       String?  @default("moving") // moving, delivered, obstacle
+  obstacleType String?  // headwind, fire, etc.
+  createdAt    DateTime @default(now())
+
+  @@index([trackerId, createdAt(sort: Desc)])
+}

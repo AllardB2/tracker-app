@@ -1,0 +1,14 @@
+{
+  "name": "drone-tracker",
+  "version": "1.0.0",
+  "scripts": {
+    "install:all": "npm install && cd backend && npm install",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && node server.js",
+    "start": "npm run dev:backend & npm run dev:frontend"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.2.1"
+  }
+}

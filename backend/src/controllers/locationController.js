@@ -1,0 +1,159 @@
+import { z } from "zod";
+import { locationService } from "../services/locationService.js";
+
+// Validation schemas
+const postLocationSchema = z.object({
+  trackerId: z.string().min(1, "trackerId is required"),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  altitude: z.number().optional(),
+  heading: z.number().optional(),
+  status: z.enum(["moving", "delivered", "obstacle"]).optional(),
+  obstacleType: z.string().nullable().optional(),
+});
+
+const getLatestSchema = z.object({
+  trackerId: z.string().min(1, "trackerId is required"),
+});
+
+const getHistorySchema = z.object({
+  trackerId: z.string().min(1, "trackerId is required"),
+  limit: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 100)),
+});
+
+const deleteHistorySchema = z.object({
+  trackerId: z.string().min(1, "trackerId is required"),
+});
+
+export const locationController = {
+  /**
+   * POST /location - Store a new location
+   */
+  async postLocation(req, res, next) {
+    try {
+      const {
+        trackerId,
+        latitude,
+        longitude,
+        altitude,
+        heading,
+        status,
+        obstacleType,
+      } = postLocationSchema.parse(req.body);
+
+      const location = await locationService.storeLocation(
+        trackerId,
+        latitude,
+        longitude,
+        altitude,
+        heading,
+        status,
+        obstacleType
+      );
+
+      res.status(200).json({
+        status: "ok",
+        trackerId: location.trackerId,
+        storedAt: location.createdAt.toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * GET /location/latest - Get latest location for a tracker
+   */
+  async getLatestLocation(req, res, next) {
+    try {
+      const { trackerId } = getLatestSchema.parse(req.query);
+
+      const location = await locationService.getLatestLocation(trackerId);
+
+      if (!location) {
+        return res.status(404).json({
+          error: "Not Found",
+          message: `No location found for tracker: ${trackerId}`,
+        });
+      }
+
+      res.status(200).json({
+        trackerId: location.trackerId,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        altitude: location.altitude,
+        heading: location.heading,
+        status: location.status,
+        obstacleType: location.obstacleType,
+        timestamp: location.createdAt.toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * GET /location/history - Get location history for a tracker
+   */
+  async getLocationHistory(req, res, next) {
+    try {
+      const { trackerId, limit } = getHistorySchema.parse(req.query);
+
+      const locations = await locationService.getLocationHistory(
+        trackerId,
+        limit
+      );
+
+      res.status(200).json({
+        trackerId,
+        count: locations.length,
+        locations: locations.map((loc) => ({
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          altitude: loc.altitude,
+          heading: loc.heading,
+          status: loc.status,
+          obstacleType: loc.obstacleType,
+          timestamp: loc.createdAt.toISOString(),
+        })),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * GET /trackers - Get all tracker IDs
+   */
+  async getAllTrackers(req, res, next) {
+    try {
+      const trackerIds = await locationService.getAllTrackerIds();
+
+      res.status(200).json({
+        trackers: trackerIds,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+  /**
+   * DELETE /location/:trackerId - Clear location history
+   */
+  async deleteHistory(req, res, next) {
+    try {
+      const { trackerId } = deleteHistorySchema.parse(req.params);
+
+      await locationService.clearHistory(trackerId);
+
+      res.status(200).json({
+        status: "ok",
+        message: `History cleared for tracker: ${trackerId}`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+};
