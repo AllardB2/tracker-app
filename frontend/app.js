@@ -424,10 +424,12 @@ trackerSelect.addEventListener("change", (e) => {
 
 window.addEventListener("hashchange", handleHashChange);
 
-vpnToggle.addEventListener("change", (e) => {
-  vpnMode = e.target.checked;
-  statusText.textContent = vpnMode ? "VPN ON - Click Map" : "Live";
-});
+if (vpnToggle) {
+  vpnToggle.addEventListener("change", (e) => {
+    vpnMode = e.target.checked;
+    statusText.textContent = vpnMode ? "VPN ON - Click Map" : "Live";
+  });
+}
 
 closeOverlayBtn.addEventListener("click", async () => {
   deliveryOverlay.style.display = "none";
