@@ -306,6 +306,11 @@ async function fetchLatestLocation() {
       return;
     }
 
+    if (response.status === 404) {
+      updateStatus("active", "Wachten op signaal...");
+      return;
+    }
+
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
@@ -462,6 +467,7 @@ async function startSimulation() {
 
     if (!response.ok) throw new Error("Could not start server-side simulation");
     console.log("🛰 Server-side simulation started");
+    fetchLatestLocation();
   } catch (err) {
     console.error("❌ Simulation start failed:", err);
     updateStatus("error", "Simulatie fout");

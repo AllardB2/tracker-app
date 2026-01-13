@@ -35,6 +35,18 @@ class SimulationService {
       };
     }
 
+    // Store initial location immediately so clients can find it
+    await locationService.storeLocation(
+      trackerId,
+      lastLocation.latitude,
+      lastLocation.longitude,
+      lastLocation.altitude,
+      lastLocation.heading,
+      "moving",
+      null,
+      sessionId
+    );
+
     let currentObstacle = null;
     let obstacleStepsRemaining = 0;
 
