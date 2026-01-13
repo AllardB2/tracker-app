@@ -3,9 +3,10 @@ const API_BASE_URL =
   window.location.hostname === "localhost"
     ? "http://localhost:3000/api"
     : "/api";
-const UPDATE_INTERVAL = 3000;
+const UPDATE_INTERVAL = 1500;
 const DEFAULT_ZOOM = 16;
-let DESTINATION = [53.2407722, 6.5357325]; // Default: Hanze (wordt overschreven door jouw locatie)
+let DESTINATION = [53.2407722, 6.5357325]; // Default: Hanze
+let USER_LOCATION_ACQUIRED = false;
 
 // State
 let map = null;
@@ -19,6 +20,7 @@ let allPositions = []; // To store last position for segmenting
 let lastLocation = null;
 let currentObstacle = null;
 let obstacleStepsRemaining = 0;
+let lastManualInteraction = 0;
 
 // DOM Elements
 const trackerSelect = document.getElementById("trackerSelect");
@@ -82,8 +84,10 @@ function initMap() {
       "<strong>Jouw Locatie</strong><br>Dit is de bestemming van de drone"
     );
 
-  // Map Click Listener for VPN Mode
+  // Map Interaction Listeners
   map.on("click", onMapClick);
+  map.on("dragstart", () => (lastManualInteraction = Date.now()));
+  map.on("zoomstart", () => (lastManualInteraction = Date.now()));
 }
 
 function requestUserLocation() {
@@ -98,6 +102,7 @@ function requestUserLocation() {
     (position) => {
       const { latitude, longitude } = position.coords;
       DESTINATION = [latitude, longitude];
+      USER_LOCATION_ACQUIRED = true;
 
       if (destinationMarker) {
         destinationMarker.setLatLng(DESTINATION);
@@ -105,12 +110,12 @@ function requestUserLocation() {
       }
 
       console.log("📍 Bestemming ingesteld op jouw locatie:", DESTINATION);
-      updateStatus("active", "Ready");
+      updateStatus("active", "Gereed");
     },
     (error) => {
       console.error("❌ Geolocation error:", error);
       updateStatus("error", "Locatie geweigerd");
-      // We behouden de default Hanze locatie als backup
+      USER_LOCATION_ACQUIRED = true; // Still "acquired" as we use backup
     }
   );
 }
@@ -145,7 +150,7 @@ function updateInfoPanel(data) {
   infoTime.textContent = new Date(data.timestamp).toLocaleTimeString("nl-NL");
 
   droneStatusBadge.textContent =
-    data.status === "delivered" ? "Delivered" : "In Flight";
+    data.status === "delivered" ? "Bezorgd" : "Onderweg";
   droneStatusBadge.className = `badge ${
     data.status === "delivered" ? "success" : ""
   }`;
@@ -158,25 +163,19 @@ function updateInfoPanel(data) {
         Math.pow(destLng - data.longitude, 2)
     );
 
-    // speedFactor is approx degrees per step in simulation (10% of distance is roughly 0.001-0.005 degrees)
-    // We can use a simpler estimation: steps = ln(distance/target_dist) / ln(0.9)
-    // Or just a linear estimate for the UI:
     const speed =
       data.status === "obstacle" && data.obstacleType === "wind"
         ? 0.0005
         : 0.001;
     const secondsRemaining = (distance / speed) * (UPDATE_INTERVAL / 1000);
 
-    const hours = Math.floor(secondsRemaining / 3600);
-    const minutes = Math.floor((secondsRemaining % 3600) / 60);
+    const minutes = Math.floor(secondsRemaining / 60);
     const seconds = Math.floor(secondsRemaining % 60);
 
-    if (hours > 0) {
-      infoETA.textContent = `${hours}:${minutes
-        .toString()
-        .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+    if (minutes > 0) {
+      infoETA.textContent = `${minutes} min, ${seconds} sec`;
     } else {
-      infoETA.textContent = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+      infoETA.textContent = `${seconds} sec`;
     }
   } else {
     infoETA.textContent = "--:--";
@@ -256,7 +255,7 @@ function updateDroneMarker(
 
   allPositions.push(position);
 
-  // Dynamic Zoom: zoom in as we get closer to destination
+  // Dynamic Zoom
   const [destLat, destLng] = DESTINATION;
   const dist = Math.sqrt(
     Math.pow(destLat - lat, 2) + Math.pow(destLng - lng, 2)
@@ -272,7 +271,9 @@ function updateDroneMarker(
   else if (dist < 0.2) targetZoom = 11;
   else targetZoom = 9;
 
-  if (status !== "delivered") {
+  // Auto-focus only if user hasn't interacted recently (10s cooldown)
+  const timeSinceInteraction = Date.now() - lastManualInteraction;
+  if (status !== "delivered" && timeSinceInteraction > 10000) {
     map.setView(position, targetZoom, { animate: true });
   }
 }
@@ -290,7 +291,7 @@ async function fetchLatestLocation() {
   if (!currentTrackerId) return;
 
   try {
-    updateStatus("active", "Syncing...");
+    updateStatus("active", "Synchroniseren...");
     const response = await fetch(
       `${API_BASE_URL}/location/latest?trackerId=${currentTrackerId}`,
       {
@@ -302,7 +303,7 @@ async function fetchLatestLocation() {
     );
 
     if (response.status === 401) {
-      updateStatus("error", "Invalid API Key");
+      updateStatus("error", "Ongeldige API-sleutel");
       return;
     }
 
@@ -340,7 +341,7 @@ async function loadTrackers() {
     });
 
     if (response.status === 401) {
-      updateStatus("error", "🔑 API Key Required");
+      updateStatus("error", "🔑 API-sleutel vereist");
       return;
     }
 
@@ -370,7 +371,7 @@ async function loadTrackers() {
       updateStatus("", "Geen drones gevonden");
     }
   } catch (err) {
-    updateStatus("error", "API Error");
+    updateStatus("error", "API-fout");
   }
 }
 
@@ -390,7 +391,6 @@ function clearPath() {
 function handleHashChange() {
   const hash = window.location.hash.substring(1);
   if (hash && hash !== currentTrackerId) {
-    // Check if the hash is a valid drone in the dropdown
     if ([...trackerSelect.options].some((opt) => opt.value === hash)) {
       trackerSelect.value = hash;
       currentTrackerId = hash;
@@ -401,10 +401,16 @@ function handleHashChange() {
 
 function prepareTakeoff() {
   if (takeoffTimer) clearTimeout(takeoffTimer);
-  // Clear map locally, simulation is on server
   clearPath();
   currentObstacle = null;
   obstacleStepsRemaining = 0;
+
+  // Wait for user location to be acquired or timed out
+  if (!USER_LOCATION_ACQUIRED) {
+    updateStatus("active", "Wachten op locatie...");
+    takeoffTimer = setTimeout(prepareTakeoff, 500);
+    return;
+  }
 
   updateStatus("active", "🚀 Opstijgen...");
   startAutoUpdate();
@@ -422,8 +428,8 @@ trackerSelect.addEventListener("change", (e) => {
   } else {
     window.location.hash = "";
     if (takeoffTimer) clearTimeout(takeoffTimer);
-    stopAutoUpdate();
-    updateStatus("", "Ready");
+    if (updateTimer) clearInterval(updateTimer);
+    updateStatus("", "Gereed");
   }
 });
 
@@ -432,7 +438,7 @@ window.addEventListener("hashchange", handleHashChange);
 if (vpnToggle) {
   vpnToggle.addEventListener("change", (e) => {
     vpnMode = e.target.checked;
-    statusText.textContent = vpnMode ? "VPN ON - Click Map" : "Live";
+    statusText.textContent = vpnMode ? "VPN AAN - Klik op de kaart" : "Live";
   });
 }
 
@@ -440,7 +446,6 @@ closeOverlayBtn.addEventListener("click", async () => {
   deliveryOverlay.style.display = "none";
   if (currentTrackerId) {
     await resetDroneHistory(currentTrackerId);
-    // Refresh trackers to ensure UI is in sync
     loadTrackers();
   }
 });
@@ -495,7 +500,7 @@ async function resetDroneHistory(trackerId) {
         droneMarker = null;
       }
       updateStatus("active", "Reset voltooid");
-      setTimeout(() => updateStatus("active", "Ready"), 2000);
+      setTimeout(() => updateStatus("active", "Gereed"), 2000);
     }
   } catch (err) {
     console.error("❌ Reset failed:", err);
@@ -530,7 +535,7 @@ async function postLocation(
     });
 
     if (response.status === 401) {
-      updateStatus("error", "Invalid API Key");
+      updateStatus("error", "Ongeldige API-sleutel");
       return;
     }
 

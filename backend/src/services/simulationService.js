@@ -49,6 +49,7 @@ class SimulationService {
 
     let currentObstacle = null;
     let obstacleStepsRemaining = 0;
+    let hasEncounteredFire = false;
 
     const intervalId = setInterval(async () => {
       try {
@@ -104,9 +105,18 @@ class SimulationService {
           }
         } else {
           currentObstacle = null;
+          // Random obstacle logic
           if (distance > 0.003 && Math.random() > 0.95) {
             currentObstacle = Math.random() > 0.7 ? "fire" : "wind";
+            if (currentObstacle === "fire") hasEncounteredFire = true;
             obstacleStepsRemaining = currentObstacle === "wind" ? 5 : 3;
+            obstacleType = currentObstacle;
+          }
+          // Mandatory fire if we haven't seen one and we are halfway (approx)
+          else if (distance < 0.015 && distance > 0.01 && !hasEncounteredFire) {
+            currentObstacle = "fire";
+            hasEncounteredFire = true;
+            obstacleStepsRemaining = 4;
             obstacleType = currentObstacle;
           }
         }
