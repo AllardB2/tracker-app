@@ -121,11 +121,22 @@ class SimulationService {
           }
         }
 
+        // Calculate altitude: Cruise at ~30m, descend when closer than 0.004 units
+        let currentAltitude = 30 + Math.random() * 5;
+        if (distance < 0.004) {
+          // Descent factor: 1.0 at 0.004 distance, 0.1 at 0.0005 distance
+          const descentFactor = Math.max(
+            0.1,
+            (distance - 0.0005) / (0.004 - 0.0005)
+          );
+          currentAltitude = 5 + (currentAltitude - 5) * descentFactor;
+        }
+
         await locationService.storeLocation(
           trackerId,
           stepLat,
           stepLng,
-          30 + Math.random() * 5,
+          currentAltitude,
           heading,
           "moving",
           obstacleType,
