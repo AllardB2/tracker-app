@@ -406,7 +406,7 @@ function prepareTakeoff() {
 
   takeoffTimer = setTimeout(() => {
     startSimulation();
-  }, 10000);
+  }, 5000);
 }
 
 trackerSelect.addEventListener("change", (e) => {
